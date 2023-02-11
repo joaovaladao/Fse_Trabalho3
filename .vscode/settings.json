@@ -1,0 +1,6 @@
+{
+    "files.associations": {
+        "semphr.h": "c",
+        "esp_log.h": "c"
+    }
+}

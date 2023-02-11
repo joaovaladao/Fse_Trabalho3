@@ -1,31 +1,37 @@
-/* WiFi station Example
-
-   This example code is in the Public Domain (or CC0 licensed, at your option.)
-
-   Unless required by applicable law or agreed to in writing, this
-   software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-   CONDITIONS OF ANY KIND, either express or implied.
-*/
+#include <stdio.h>
 #include <string.h>
+#include "nvs_flash.h"
+#include "esp_wifi.h"
+#include "esp_event.h"
+#include "esp_http_client.h"
+#include "esp_log.h"
+#include "freertos/semphr.h"
+
+
+
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
 #include "driver/gpio.h"
 #include "sdkconfig.h"
 #include "esp_system.h"
-#include "esp_wifi.h"
-#include "esp_event.h"
-#include "esp_log.h"
-#include "nvs_flash.h"
+
 
 #include "lwip/err.h"
 #include "lwip/sys.h"
 
+#include "mqtt.h"
 #include "dht11.h"
-#include "freertos/task.h"
+
+
+SemaphoreHandle_t conexaoWifiSemaphore;
+SemaphoreHandle_t conexaoMQTTSemaphore;
+
+
+
+
 
 /* The examples use WiFi configuration that you can set via project configuration menu
-
    If you'd rather not, just change the below entries to strings with
    the config you want - ie #define EXAMPLE_WIFI_SSID "mywifissid"
 */
@@ -150,15 +156,65 @@ void wifi_init_sta(void)
     } else {
         ESP_LOGE(TAG, "UNEXPECTED EVENT");
     }
+}   
+
+void conectadoWifi(void * params)
+{
+  while(true)
+  {
+
+        UBaseType_t uxSemaphoreCount = uxSemaphoreGetCount(conexaoMQTTSemaphore);
+    printf("Value of semaphore before taking it: %d\n", uxSemaphoreCount);
+    BaseType_t xSemaphoreTakeResult = xSemaphoreTake(conexaoWifiSemaphore, portMAX_DELAY);
+        if (xSemaphoreTakeResult == pdTRUE)
+        {
+            mqtt_start();
+        }
+        else
+        {
+            printf("Semaphore could not be taken, value of xSemaphoreTakeResult: %d\n", xSemaphoreTakeResult);
+        }
+  }
 }
 
-void app_main(void)
+void trataComunicacaoComServidor(void * params)
 {
+  char mensagem[50];
+
+  //Initialize DHT11
+  DHT11_init(GPIO_NUM_4);
+
+    UBaseType_t uxSemaphoreCount = uxSemaphoreGetCount(conexaoMQTTSemaphore);
+    printf("Value of semaphore before taking it: %d\n", uxSemaphoreCount);
+
+  if(xSemaphoreTake(conexaoMQTTSemaphore, portMAX_DELAY))
+  {
+    while(true)
+    {
+       sprintf(mensagem, "{\"temperature\": %d}",  DHT11_read().temperature);
+       mqtt_envia_mensagem("v1/devices/me/telemetry", mensagem);
+       printf("%s \n", mensagem);
+
+       sprintf(mensagem, "{\"umidade\": %d}", DHT11_read().humidity);
+       mqtt_envia_mensagem("v1/devices/me/telemetry", mensagem);
+       printf("%s \n", mensagem);
+
+       vTaskDelay(3000 / portTICK_PERIOD_MS);
+    }
+  }
+  else 
+  {
+    printf("Não foi possível se conectar ao servidor MQTT");
+  }
+}
+
+void app_main(void){
+
     //Initialize NVS
     esp_err_t ret = nvs_flash_init();
 
-    //Initialize DHT11
-    DHT11_init(GPIO_NUM_4);
+    // //Initialize DHT11
+    // DHT11_init(GPIO_NUM_4);
 
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
       ESP_ERROR_CHECK(nvs_flash_erase());
@@ -166,13 +222,17 @@ void app_main(void)
     }
     ESP_ERROR_CHECK(ret);
 
+    
+    conexaoWifiSemaphore = xSemaphoreCreateBinary();
+    conexaoMQTTSemaphore = xSemaphoreCreateBinary();
+
+
     ESP_LOGI(TAG, "ESP_WIFI_MODE_STA");
     wifi_init_sta();
 
-    while(1) {
-        printf("Temperature is %d \n", DHT11_read().temperature);
-        printf("Humidity is %d\n", DHT11_read().humidity);
-        //printf("Status code is %d\n", DHT11_read().status);
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
-    }
+    xSemaphoreGive(conexaoMQTTSemaphore);
+    xSemaphoreGive(conexaoWifiSemaphore);
+
+    xTaskCreate(&conectadoWifi,  "Conexão ao MQTT", 4096, NULL, 1, NULL);
+    xTaskCreate(&trataComunicacaoComServidor, "Comunicação com Broker", 4096, NULL, 1, NULL);
 }
