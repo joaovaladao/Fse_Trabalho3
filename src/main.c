@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <driver/adc.h>
 #include "nvs_flash.h"
 #include "esp_wifi.h"
 #include "esp_event.h"
@@ -23,13 +24,17 @@
 #include "mqtt.h"
 #include "dht11.h"
 
+//#define VOICE_SENSOR_GPIO_NUM 15
+//#define VOICE_SENSOR_ADC_CHANNEL ADC2_CHANNEL_3
 
 SemaphoreHandle_t conexaoWifiSemaphore;
 SemaphoreHandle_t conexaoMQTTSemaphore;
 
+#define IR_SENSOR_GPIO_NUM 36
 
+//#define IR_OBSTACLE_AVOIDANCE_SENSOR_GPIO_NUM 22
 
-
+//static const char *TAG = "Infrared Obstacle Avoidance Sensor";
 
 /* The examples use WiFi configuration that you can set via project configuration menu
    If you'd rather not, just change the below entries to strings with
@@ -177,6 +182,39 @@ void conectadoWifi(void * params)
   }
 }
 
+// int voice_sensor_init(void)
+// {
+//     // // Configure the input pin for the voice sensor
+//     // printf("Configuring voice sensor GPIO...\n");
+//     // gpio_config_t io_conf = {
+//     //     .intr_type = GPIO_INTR_DISABLE,
+//     //     .mode = GPIO_MODE_INPUT,
+//     //     .pin_bit_mask = 1LL << VOICE_SENSOR_GPIO_NUM,
+//     //     .pull_down_en = 0,
+//     //     .pull_up_en = 0
+//     // };
+//     // gpio_config(&io_conf);
+
+//     adc1_config_width(ADC_WIDTH_BIT_12);
+//     adc1_config_channel_atten(VOICE_SENSOR_ADC_CHANNEL, ADC_ATTEN_DB_11);
+
+//     return 0;
+// }
+
+void IR_obstacle_avoidance_sensor_init(void)
+{
+    // gpio_config_t io_conf;
+    // io_conf.intr_type = GPIO_INTR_DISABLE;
+    // io_conf.mode = GPIO_MODE_INPUT;
+    // io_conf.pin_bit_mask = (1ULL<<IR_OBSTACLE_AVOIDANCE_SENSOR_GPIO_NUM);
+    // io_conf.pull_down_en = 0;
+    // io_conf.pull_up_en = 0;
+    // gpio_config(&io_conf);
+
+    adc1_config_width(ADC_WIDTH_BIT_12);
+    adc1_config_channel_atten(ADC2_CHANNEL_3, ADC_ATTEN_DB_11);
+}
+
 void trataComunicacaoComServidor(void * params)
 {
   char mensagem[50];
@@ -189,6 +227,7 @@ void trataComunicacaoComServidor(void * params)
 
   if(xSemaphoreTake(conexaoMQTTSemaphore, portMAX_DELAY))
   {
+
     while(true)
     {
        sprintf(mensagem, "{\"temperature\": %d}",  DHT11_read().temperature);
@@ -199,7 +238,41 @@ void trataComunicacaoComServidor(void * params)
        mqtt_envia_mensagem("v1/devices/me/telemetry", mensagem);
        printf("%s \n", mensagem);
 
-       vTaskDelay(3000 / portTICK_PERIOD_MS);
+       //int sensor_value = sensor_voice();
+       //int value = gpio_get_level(VOICE_SENSOR_GPIO_NUM);
+        //printf("voice sensor value: %d\n", value);
+        // adc1_config_width(ADC_WIDTH_BIT_12);
+        // adc1_config_channel_atten(ADC1_CHANNEL_0, ADC_ATTEN_DB_0);
+        // uint32_t voice_sensor_value = adc1_get_raw(ADC1_CHANNEL_0);
+        // //ESP_LOGI("Voice Sensor Value", "Value: %d", voice_sensor_value);
+        // printf("Voice sensor value: %ld\n", voice_sensor_value);
+
+    //     int reading = adc1_get_raw(VOICE_SENSOR_ADC_CHANNEL);
+    //     printf("Voice Sensor Reading: %d\n", reading);
+
+    //     sprintf(mensagem, "{\"som\": %d}", reading);
+    //    mqtt_envia_mensagem("v1/devices/me/telemetry", mensagem);
+    //    printf("%s \n", mensagem);
+
+    //    int proximidade = gpio_get_level(IR_OBSTACLE_AVOIDANCE_SENSOR_GPIO_NUM);;
+    //     printf("proximidade: %d", proximidade);
+
+        //int raw_value = adc1_get_raw(ADC2_CHANNEL_3);
+
+        // Convert the raw ADC value to a voltage value
+        //float voltage = adc1_to_voltage(raw_value);
+
+        // Print the ADC value and voltage to the console
+        //printf("ADC Value: %d, Voltage: %.2fV\n", raw_value, voltage);
+
+
+    //     sprintf(mensagem, "{\"proximidade\": %d}", proximidade);
+    //    mqtt_envia_mensagem("v1/devices/me/telemetry", mensagem);
+    //    printf("%s \n", mensagem);
+
+       // outros sensores
+
+       vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
   }
   else 
@@ -222,6 +295,8 @@ void app_main(void){
     }
     ESP_ERROR_CHECK(ret);
 
+    //voice_sensor_init();
+    IR_obstacle_avoidance_sensor_init();
     
     conexaoWifiSemaphore = xSemaphoreCreateBinary();
     conexaoMQTTSemaphore = xSemaphoreCreateBinary();
@@ -235,4 +310,5 @@ void app_main(void){
 
     xTaskCreate(&conectadoWifi,  "Conexão ao MQTT", 4096, NULL, 1, NULL);
     xTaskCreate(&trataComunicacaoComServidor, "Comunicação com Broker", 4096, NULL, 1, NULL);
+    //xTaskCreate(&sensor_voice, "Sensor de voz", 4096, NULL, 1, NULL);    
 }
