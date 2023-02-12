@@ -32,7 +32,8 @@ SemaphoreHandle_t conexaoMQTTSemaphore;
 
 #define IR_SENSOR_GPIO_NUM 36
 
-//#define IR_OBSTACLE_AVOIDANCE_SENSOR_GPIO_NUM 22
+#define IR_OBSTACLE_AVOIDANCE_SENSOR_GPIO_NUM GPIO_NUM_22
+//#define IR_OBSTACLE_AVOIDANCE_SENSOR_GPIO_NUM GPIO_NUM_4
 
 //static const char *TAG = "Infrared Obstacle Avoidance Sensor";
 
@@ -201,18 +202,33 @@ void conectadoWifi(void * params)
 //     return 0;
 // }
 
+// void IR_obstacle_avoidance_sensor_init(void)
+// {
+//     gpio_config_t io_conf;
+//     io_conf.intr_type = GPIO_INTR_DISABLE;
+//     io_conf.mode = GPIO_MODE_INPUT;
+//     io_conf.pin_bit_mask = (1ULL<<IR_OBSTACLE_AVOIDANCE_SENSOR_GPIO_NUM);
+//     io_conf.pull_down_en = 0;
+//     io_conf.pull_up_en = 0;
+//     gpio_config(&io_conf);
+
+//     // adc1_config_width(ADC_WIDTH_BIT_12);
+//     // adc1_config_channel_atten(ADC2_CHANNEL_3, ADC_ATTEN_DB_11);
+// }
+
 void IR_obstacle_avoidance_sensor_init(void)
 {
-    // gpio_config_t io_conf;
-    // io_conf.intr_type = GPIO_INTR_DISABLE;
-    // io_conf.mode = GPIO_MODE_INPUT;
-    // io_conf.pin_bit_mask = (1ULL<<IR_OBSTACLE_AVOIDANCE_SENSOR_GPIO_NUM);
-    // io_conf.pull_down_en = 0;
-    // io_conf.pull_up_en = 0;
-    // gpio_config(&io_conf);
+    gpio_config_t io_conf;
+    io_conf.intr_type = GPIO_INTR_DISABLE;
+    io_conf.mode = GPIO_MODE_INPUT;
+    io_conf.pin_bit_mask = (1ULL<<IR_OBSTACLE_AVOIDANCE_SENSOR_GPIO_NUM);
+    io_conf.pull_down_en = 0;
+    io_conf.pull_up_en = 0;
+    gpio_config(&io_conf);
 
-    adc1_config_width(ADC_WIDTH_BIT_12);
-    adc1_config_channel_atten(ADC2_CHANNEL_3, ADC_ATTEN_DB_11);
+    // Print the initial state of the GPIO pin
+    int pin_state = gpio_get_level(IR_OBSTACLE_AVOIDANCE_SENSOR_GPIO_NUM);
+    printf("Initial state of IR obstacle avoidance sensor: %d\n", pin_state);
 }
 
 void trataComunicacaoComServidor(void * params)
@@ -230,13 +246,6 @@ void trataComunicacaoComServidor(void * params)
 
     while(true)
     {
-       sprintf(mensagem, "{\"temperature\": %d}",  DHT11_read().temperature);
-       mqtt_envia_mensagem("v1/devices/me/telemetry", mensagem);
-       printf("%s \n", mensagem);
-
-       sprintf(mensagem, "{\"umidade\": %d}", DHT11_read().humidity);
-       mqtt_envia_mensagem("v1/devices/me/telemetry", mensagem);
-       printf("%s \n", mensagem);
 
        //int sensor_value = sensor_voice();
        //int value = gpio_get_level(VOICE_SENSOR_GPIO_NUM);
@@ -254,8 +263,31 @@ void trataComunicacaoComServidor(void * params)
     //    mqtt_envia_mensagem("v1/devices/me/telemetry", mensagem);
     //    printf("%s \n", mensagem);
 
-    //    int proximidade = gpio_get_level(IR_OBSTACLE_AVOIDANCE_SENSOR_GPIO_NUM);;
-    //     printf("proximidade: %d", proximidade);
+    // IR proximity
+
+        int prox = 1, temp = 1, umid = 1;
+        for (int i = 0; i < 100; i++)
+        {
+            int proximidade = gpio_get_level(IR_OBSTACLE_AVOIDANCE_SENSOR_GPIO_NUM);
+            int temperatura = DHT11_read().temperature;
+            int umidade = DHT11_read().humidity;
+
+            if (proximidade == 0)
+            {
+                prox = 0;
+            }
+            if (temperatura > 1)
+            {
+                temp = temperatura;
+            }
+            if (umidade > 1)
+            {
+                umid = umidade;
+            }
+            vTaskDelay(10 / portTICK_PERIOD_MS);
+        }
+    //    int proximidade = gpio_get_level(IR_OBSTACLE_AVOIDANCE_SENSOR_GPIO_NUM);
+         //printf("proximidade: %d", prox);
 
         //int raw_value = adc1_get_raw(ADC2_CHANNEL_3);
 
@@ -265,14 +297,28 @@ void trataComunicacaoComServidor(void * params)
         // Print the ADC value and voltage to the console
         //printf("ADC Value: %d, Voltage: %.2fV\n", raw_value, voltage);
 
+        if(temp > 1 && umid > 1){
+            sprintf(mensagem, "{\"temperature\": %d}",  temp);
+            mqtt_envia_mensagem("v1/devices/me/telemetry", mensagem);
+            printf("%s \n", mensagem);
 
-    //     sprintf(mensagem, "{\"proximidade\": %d}", proximidade);
-    //    mqtt_envia_mensagem("v1/devices/me/telemetry", mensagem);
-    //    printf("%s \n", mensagem);
+            sprintf(mensagem, "{\"umidade\": %d}", umid);
+            mqtt_envia_mensagem("v1/devices/me/telemetry", mensagem);
+            printf("%s \n", mensagem);
+        }
+
+        if (prox == 0){
+            prox = 1;
+        }
+        else{
+            prox = 0;
+        }
+
+        sprintf(mensagem, "{\"proximidade\": %d}", prox);
+        mqtt_envia_mensagem("v1/devices/me/telemetry", mensagem);
+        printf("%s \n", mensagem);
 
        // outros sensores
-
-       vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
   }
   else 
@@ -280,6 +326,20 @@ void trataComunicacaoComServidor(void * params)
     printf("Não foi possível se conectar ao servidor MQTT");
   }
 }
+
+// void read_ir_obstacle_avoidance_sensor(void *pvParameters)
+// {
+//     while(1) {
+//         int level = IR_obstacle_avoidance_sensor_read();
+//         if(level == 0) {
+//             ESP_LOGI(TAG, "Obstáculo detectado");
+//         }
+//         else {
+//             ESP_LOGI(TAG, "Nenhum obstáculo detectado");
+//         }
+//         vTaskDelay(100 / portTICK_PERIOD_MS);
+//     }
+// }
 
 void app_main(void){
 
@@ -310,5 +370,6 @@ void app_main(void){
 
     xTaskCreate(&conectadoWifi,  "Conexão ao MQTT", 4096, NULL, 1, NULL);
     xTaskCreate(&trataComunicacaoComServidor, "Comunicação com Broker", 4096, NULL, 1, NULL);
+    //xTaskCreate(&read_ir_obstacle_avoidance_sensor, "Leitura do Sensor de Obstáculo IR", 4096, NULL, 1, NULL);
     //xTaskCreate(&sensor_voice, "Sensor de voz", 4096, NULL, 1, NULL);    
 }
