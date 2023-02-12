@@ -24,8 +24,7 @@
 #include "mqtt.h"
 #include "dht11.h"
 
-//#define VOICE_SENSOR_GPIO_NUM 15
-//#define VOICE_SENSOR_ADC_CHANNEL ADC2_CHANNEL_3
+#define VOICE_SENSOR_GPIO_NUM 23
 
 SemaphoreHandle_t conexaoWifiSemaphore;
 SemaphoreHandle_t conexaoMQTTSemaphore;
@@ -183,38 +182,24 @@ void conectadoWifi(void * params)
   }
 }
 
-// int voice_sensor_init(void)
-// {
-//     // // Configure the input pin for the voice sensor
-//     // printf("Configuring voice sensor GPIO...\n");
-//     // gpio_config_t io_conf = {
-//     //     .intr_type = GPIO_INTR_DISABLE,
-//     //     .mode = GPIO_MODE_INPUT,
-//     //     .pin_bit_mask = 1LL << VOICE_SENSOR_GPIO_NUM,
-//     //     .pull_down_en = 0,
-//     //     .pull_up_en = 0
-//     // };
-//     // gpio_config(&io_conf);
+int sensor_voice(void)
+{
+    // Configure the input pin for the voice sensor
+    printf("Configuring voice sensor GPIO...\n");
+    gpio_config_t io_conf = {
+        .intr_type = GPIO_INTR_DISABLE,
+        .mode = GPIO_MODE_INPUT,
+        .pin_bit_mask = 1LL << VOICE_SENSOR_GPIO_NUM,
+        .pull_down_en = 0,
+        .pull_up_en = 0
+    };
+    gpio_config(&io_conf);
 
-//     adc1_config_width(ADC_WIDTH_BIT_12);
-//     adc1_config_channel_atten(VOICE_SENSOR_ADC_CHANNEL, ADC_ATTEN_DB_11);
+    // adc1_config_width(ADC_WIDTH_BIT_12);
+    // adc1_config_channel_atten(VOICE_SENSOR_ADC_CHANNEL, ADC_ATTEN_DB_11);
 
-//     return 0;
-// }
-
-// void IR_obstacle_avoidance_sensor_init(void)
-// {
-//     gpio_config_t io_conf;
-//     io_conf.intr_type = GPIO_INTR_DISABLE;
-//     io_conf.mode = GPIO_MODE_INPUT;
-//     io_conf.pin_bit_mask = (1ULL<<IR_OBSTACLE_AVOIDANCE_SENSOR_GPIO_NUM);
-//     io_conf.pull_down_en = 0;
-//     io_conf.pull_up_en = 0;
-//     gpio_config(&io_conf);
-
-//     // adc1_config_width(ADC_WIDTH_BIT_12);
-//     // adc1_config_channel_atten(ADC2_CHANNEL_3, ADC_ATTEN_DB_11);
-// }
+    return 0;
+}
 
 void IR_obstacle_avoidance_sensor_init(void)
 {
@@ -237,6 +222,7 @@ void trataComunicacaoComServidor(void * params)
 
   //Initialize DHT11
   DHT11_init(GPIO_NUM_4);
+  sensor_voice();
 
     UBaseType_t uxSemaphoreCount = uxSemaphoreGetCount(conexaoMQTTSemaphore);
     printf("Value of semaphore before taking it: %d\n", uxSemaphoreCount);
@@ -247,9 +233,6 @@ void trataComunicacaoComServidor(void * params)
     while(true)
     {
 
-       //int sensor_value = sensor_voice();
-       //int value = gpio_get_level(VOICE_SENSOR_GPIO_NUM);
-        //printf("voice sensor value: %d\n", value);
         // adc1_config_width(ADC_WIDTH_BIT_12);
         // adc1_config_channel_atten(ADC1_CHANNEL_0, ADC_ATTEN_DB_0);
         // uint32_t voice_sensor_value = adc1_get_raw(ADC1_CHANNEL_0);
@@ -265,12 +248,14 @@ void trataComunicacaoComServidor(void * params)
 
     // IR proximity
 
-        int prox = 1, temp = 1, umid = 1;
+        int prox = 1, temp = 1, umid = 1, voice = 0;
         for (int i = 0; i < 100; i++)
         {
+
             int proximidade = gpio_get_level(IR_OBSTACLE_AVOIDANCE_SENSOR_GPIO_NUM);
             int temperatura = DHT11_read().temperature;
             int umidade = DHT11_read().humidity;
+            int voz = gpio_get_level(VOICE_SENSOR_GPIO_NUM);
 
             if (proximidade == 0)
             {
@@ -284,18 +269,12 @@ void trataComunicacaoComServidor(void * params)
             {
                 umid = umidade;
             }
+            if (voz == 1)
+            {
+                voice = 1;
+            }
             vTaskDelay(10 / portTICK_PERIOD_MS);
         }
-    //    int proximidade = gpio_get_level(IR_OBSTACLE_AVOIDANCE_SENSOR_GPIO_NUM);
-         //printf("proximidade: %d", prox);
-
-        //int raw_value = adc1_get_raw(ADC2_CHANNEL_3);
-
-        // Convert the raw ADC value to a voltage value
-        //float voltage = adc1_to_voltage(raw_value);
-
-        // Print the ADC value and voltage to the console
-        //printf("ADC Value: %d, Voltage: %.2fV\n", raw_value, voltage);
 
         if(temp > 1 && umid > 1){
             sprintf(mensagem, "{\"temperature\": %d}",  temp);
@@ -318,6 +297,10 @@ void trataComunicacaoComServidor(void * params)
         mqtt_envia_mensagem("v1/devices/me/telemetry", mensagem);
         printf("%s \n", mensagem);
 
+        sprintf(mensagem, "{\"volume\": %d}", voice);
+        mqtt_envia_mensagem("v1/devices/me/telemetry", mensagem);
+        printf("%s \n", mensagem);
+
        // outros sensores
     }
   }
@@ -326,20 +309,6 @@ void trataComunicacaoComServidor(void * params)
     printf("Não foi possível se conectar ao servidor MQTT");
   }
 }
-
-// void read_ir_obstacle_avoidance_sensor(void *pvParameters)
-// {
-//     while(1) {
-//         int level = IR_obstacle_avoidance_sensor_read();
-//         if(level == 0) {
-//             ESP_LOGI(TAG, "Obstáculo detectado");
-//         }
-//         else {
-//             ESP_LOGI(TAG, "Nenhum obstáculo detectado");
-//         }
-//         vTaskDelay(100 / portTICK_PERIOD_MS);
-//     }
-// }
 
 void app_main(void){
 
