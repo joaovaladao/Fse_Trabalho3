@@ -7,6 +7,7 @@
 #include "esp_http_client.h"
 #include "esp_log.h"
 #include "freertos/semphr.h"
+#include <driver/ledc.h>
 
 
 
@@ -32,6 +33,9 @@ SemaphoreHandle_t conexaoMQTTSemaphore;
 #define IR_SENSOR_GPIO_NUM 36
 
 #define IR_OBSTACLE_AVOIDANCE_SENSOR_GPIO_NUM GPIO_NUM_22
+
+#define IR_RECEIVER_GPIO_NUM 21
+
 //#define IR_OBSTACLE_AVOIDANCE_SENSOR_GPIO_NUM GPIO_NUM_4
 
 //static const char *TAG = "Infrared Obstacle Avoidance Sensor";
@@ -276,7 +280,7 @@ void trataComunicacaoComServidor(void * params)
             vTaskDelay(10 / portTICK_PERIOD_MS);
         }
 
-        if(temp > 1 && umid > 1){
+        if(temp > 1 && umid > 1 && umid < 100){
             sprintf(mensagem, "{\"temperature\": %d}",  temp);
             mqtt_envia_mensagem("v1/devices/me/telemetry", mensagem);
             printf("%s \n", mensagem);
@@ -310,6 +314,80 @@ void trataComunicacaoComServidor(void * params)
   }
 }
 
+void ir_receiver_task()
+{
+    gpio_config_t io_conf;
+    io_conf.intr_type = GPIO_INTR_DISABLE;
+    io_conf.mode = GPIO_MODE_INPUT;
+    io_conf.pin_bit_mask = (1 << IR_RECEIVER_GPIO_NUM);
+    io_conf.pull_down_en = 0;
+    io_conf.pull_up_en = 0;
+    gpio_config(&io_conf);
+
+    // while (true) {
+    //     if (gpio_get_level(IR_RECEIVER_GPIO_NUM) == 1) {
+    //         printf("IR signal detected\n");
+    //     }
+    //     vTaskDelay(10 / portTICK_PERIOD_MS);
+    // }
+}
+
+// void ir_receiver_task(void *pvParameters)
+// {
+//     gpio_config_t io_conf;
+//     io_conf.intr_type = GPIO_INTR_DISABLE;
+//     io_conf.mode = GPIO_MODE_INPUT;
+//     io_conf.pin_bit_mask = (1 << IR_RECEIVER_GPIO_NUM);
+//     io_conf.pull_down_en = 0;
+//     io_conf.pull_up_en = 0;
+//     gpio_config(&io_conf);
+
+//      while (true) {
+//         if (gpio_get_level(IR_RECEIVER_GPIO_NUM) == 1) {
+//             printf("IR signal detected\n");
+//         }
+//         vTaskDelay(10 / portTICK_PERIOD_MS);
+//     }
+// }
+
+void switch_task(void *pvParameter)
+{
+
+    char mensagem[50];
+    ir_receiver_task();
+    int count = 0, infra = 0;
+    while (1) {   
+
+        if (gpio_get_level(IR_RECEIVER_GPIO_NUM) == 0) {
+            infra++;
+            printf("IR signal detected!\nINFRA=%d\n", infra);
+
+            // sprintf(mensagem, "{\"infrared\": %d}",  1);
+            // mqtt_envia_mensagem("v1/devices/me/telemetry", mensagem);
+            // printf("%s \n", mensagem);
+        }
+
+        // sprintf(mensagem, "{\"infrared\": %d}",  infra);
+        // mqtt_envia_mensagem("v1/devices/me/telemetry", mensagem);
+        // printf("%s \n", mensagem);
+
+        if (count == 50) {
+            if (infra > 0){
+                infra = 1;
+            }
+            sprintf(mensagem, "{\"infrared\": %d}",  infra);
+            mqtt_envia_mensagem("v1/devices/me/telemetry", mensagem);
+            printf("%s \n", mensagem);
+            //printf("%d \n", infra);
+            count = 0;
+            infra = 0;
+        }
+
+        vTaskDelay(10 / portTICK_PERIOD_MS);
+        count++; 
+    }
+}
+
 void app_main(void){
 
     //Initialize NVS
@@ -339,6 +417,8 @@ void app_main(void){
 
     xTaskCreate(&conectadoWifi,  "Conexão ao MQTT", 4096, NULL, 1, NULL);
     xTaskCreate(&trataComunicacaoComServidor, "Comunicação com Broker", 4096, NULL, 1, NULL);
+    xTaskCreate(&switch_task, "switch_task", 4096, NULL, 1, NULL);
+    //xTaskCreate(ir_receiver_task, "ir_receiver_task", 2048, NULL, 5, NULL);
     //xTaskCreate(&read_ir_obstacle_avoidance_sensor, "Leitura do Sensor de Obstáculo IR", 4096, NULL, 1, NULL);
     //xTaskCreate(&sensor_voice, "Sensor de voz", 4096, NULL, 1, NULL);    
 }
