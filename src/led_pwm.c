@@ -32,6 +32,19 @@ void led_init()
 }
 
 void pwm_led(int i){
-  ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, i);
-  ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
+    if (i == 100) {
+        for(int j = 0; j < 100; j++){
+        ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, j);
+        ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
+        vTaskDelay(10 / portTICK_PERIOD_MS);
+        }
+    }
+    if (i == 0) {
+        for(int j = 100; j >= 0; j--){
+        ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, j);
+        ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
+        vTaskDelay(10 / portTICK_PERIOD_MS);
+        }
+    }
+    
 }
