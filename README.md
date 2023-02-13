@@ -67,17 +67,17 @@ Ao criar um projeto pelo PlataformIO já é criado uma arquitetura de arquivos, 
 
 - <b>mqtt.c</b>: Arquivo que define o protocolo MQTT, onde inicializa e possui funções para enviar mensagens.
 
--<b>mqtt.h</b>: Onde exporta as funções do mqtt.c
+- <b>mqtt.h</b>: Onde exporta as funções do mqtt.c
 
--<b>cJSON.c</b>: Biblioteca para fazer parser dos dados.
+- <b>cJSON.c</b>: Biblioteca para fazer parser dos dados.
 
--<b>cJSON.h</b>: Exporta as funções do cJSON.c
+- <b>cJSON.h</b>: Exporta as funções do cJSON.c
 
--<b>led_pwm.c</b>: Arquivo que define o LED (interno da ESP32) e realiza o pwm.
+- <b>led_pwm.c</b>: Arquivo que define o LED (interno da ESP32) e realiza o pwm.
 
--<b>led_pwm.h</b>: Exporta as funções do led_pwm.c
+- <b>led_pwm.h</b>: Exporta as funções do led_pwm.c
 
--<b>protocol_exemples_common.h</b>: Serve para exportar as funções do git do MQTT
+- <b>protocol_exemples_common.h</b>: Serve para exportar as funções do git do MQTT
 
 Além disso, temos outra branch chamada sistemaIRE, onde possui o arquivo sistemaInfraVermelho.c.
 
