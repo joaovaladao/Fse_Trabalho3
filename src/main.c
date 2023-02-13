@@ -24,6 +24,7 @@
 
 #include "mqtt.h"
 #include "dht11.h"
+#include "led_pwm.h"
 
 #define VOICE_SENSOR_GPIO_NUM 23
 
@@ -411,7 +412,8 @@ void app_main(void){
 
     ESP_LOGI(TAG, "ESP_WIFI_MODE_STA");
     wifi_init_sta();
-
+    led_init();
+    
     xSemaphoreGive(conexaoMQTTSemaphore);
     xSemaphoreGive(conexaoWifiSemaphore);
 

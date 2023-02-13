@@ -19,6 +19,8 @@
 #include "mqtt_client.h"
 
 #include "mqtt.h"
+#include "cJSON.h"
+#include "led_pwm.h"
 
 #define TAG "MQTT"
 
@@ -38,11 +40,15 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
     esp_mqtt_event_handle_t event = event_data;
     esp_mqtt_client_handle_t client = event->client;
     int msg_id;
+    cJSON *parser = NULL;
+	cJSON *method = NULL;
+	cJSON *param = NULL;
+
     switch ((esp_mqtt_event_id_t)event_id) {
     case MQTT_EVENT_CONNECTED:
         ESP_LOGI(TAG, "MQTT_EVENT_CONNECTED");
         xSemaphoreGive(conexaoMQTTSemaphore);
-        msg_id = esp_mqtt_client_subscribe(client, "dispositivos/#", 0);
+        msg_id = esp_mqtt_client_subscribe(client, "v1/devices/me/rpc/request/+", 0);
         break;
     case MQTT_EVENT_DISCONNECTED:
         ESP_LOGI(TAG, "MQTT_EVENT_DISCONNECTED");
@@ -63,6 +69,14 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
         ESP_LOGI(TAG, "MQTT_EVENT_DATA");
         printf("TOPIC=%.*s\r\n", event->topic_len, event->topic);
         printf("DATA=%.*s\r\n", event->data_len, event->data);
+        parser = cJSON_ParseWithLength(event->data, event->data_len);
+        method = cJSON_GetObjectItem(parser, "method");
+        param = cJSON_GetObjectItem(parser, "params");
+
+        printf("Method: %s\r\n", method->valuestring);
+        printf("Params: %f\r\n", param->valuedouble);
+        pwm_led(param->valuedouble);
+
         break;
     case MQTT_EVENT_ERROR:
         ESP_LOGI(TAG, "MQTT_EVENT_ERROR");
