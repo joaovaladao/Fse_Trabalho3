@@ -37,6 +37,7 @@ SemaphoreHandle_t conexaoMQTTSemaphore;
 
 #define IR_RECEIVER_GPIO_NUM 21
 
+
 //#define IR_OBSTACLE_AVOIDANCE_SENSOR_GPIO_NUM GPIO_NUM_4
 
 //static const char *TAG = "Infrared Obstacle Avoidance Sensor";
@@ -253,6 +254,8 @@ void trataComunicacaoComServidor(void * params)
 
     // IR proximity
 
+        printf("low_power: %d", get_low_power());
+
         int prox = 1, temp = 1, umid = 1, voice = 0;
         for (int i = 0; i < 100; i++)
         {
@@ -281,7 +284,7 @@ void trataComunicacaoComServidor(void * params)
             vTaskDelay(10 / portTICK_PERIOD_MS);
         }
 
-        if(temp > 1 && umid > 1 && umid < 100){
+        if(get_low_power() == 0 && temp > 1 && umid > 1 && umid < 80){
             sprintf(mensagem, "{\"temperature\": %d}",  temp);
             mqtt_envia_mensagem("v1/devices/me/telemetry", mensagem);
             printf("%s \n", mensagem);
@@ -413,7 +416,7 @@ void app_main(void){
     ESP_LOGI(TAG, "ESP_WIFI_MODE_STA");
     wifi_init_sta();
     led_init();
-    
+
     xSemaphoreGive(conexaoMQTTSemaphore);
     xSemaphoreGive(conexaoWifiSemaphore);
 

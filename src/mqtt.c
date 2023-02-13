@@ -27,6 +27,8 @@
 extern SemaphoreHandle_t conexaoMQTTSemaphore;
 esp_mqtt_client_handle_t client;
 
+int low_power = 0;
+
 static void log_error_if_nonzero(const char *message, int error_code)
 {
     if (error_code != 0) {
@@ -77,6 +79,13 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
         printf("Params: %f\r\n", param->valuedouble);
         pwm_led(param->valuedouble);
 
+        if(param->valuedouble == 0.0){
+            low_power = 0;
+        }
+        else{
+            low_power = 1;
+        }
+
         break;
     case MQTT_EVENT_ERROR:
         ESP_LOGI(TAG, "MQTT_EVENT_ERROR");
@@ -111,4 +120,8 @@ void mqtt_envia_mensagem(char * topico, char * mensagem)
 {
     int message_id = esp_mqtt_client_publish(client, topico, mensagem, 0, 1, 0);
     ESP_LOGI(TAG, "Mensagem enviada, ID: %d", message_id);
+}
+
+int get_low_power(){
+    return low_power;
 }
