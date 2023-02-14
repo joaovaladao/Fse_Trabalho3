@@ -7,6 +7,10 @@
 | 18/0103431  |  Joao Victor Valadão |
 | 18/0101617  |  Guilherme Richter |
 
+## Vídeo Apresentação
+
+[![Apresentação Trabalho 3](https://res.cloudinary.com/marcomontalbano/image/upload/v1676416769/video_to_markdown/images/youtube--sMu4muQyyyM-c05b58ac6eb4c4700831b2b3070cd403.jpg)](https://www.youtube.com/watch?v=sMu4muQyyyM)
+
 ## Objetivos
 
 Esse trabalho tem com objetivo utilizar a esp32 e alguns sensores utilizando conexão MQTT e o módulo WI-FI da própria placa ESP, implementando no ThingsBoad. Utilizando de conceitos de eletrônica e sistemas embarcados para implementar esses sensores e a ESP em uma protoboard para realizar suas conexões.
